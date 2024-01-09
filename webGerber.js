@@ -52,30 +52,6 @@ wG.colors[wG.SOLDER] = 'rgba(94, 152, 6, .5)';//'rgba(37, 80, 5, .7)';
 wG.colors[wG.PASTE]  = '#e6e8fa';
 wG.colors[wG.SILK]   = '#ffffff';
 
-wG.guessLayer = function guessLayer(f) {
-    f = f.toLowerCase();
-    if(f.match(/\.excellon|\.drl|\.drd|\.txt/))
-        return [wG.BOTTOM|wG.TOP, wG.BOARD];
-    if(f.match(/\.dim|\.out|outline/))
-        return [wG.BOTTOM|wG.TOP, wG.OUTLINE];
-    if(f.match(/\.bot|\.gbl|\.sol/) || f.match(/bot/) && f.match(/copper|signal/))
-        return [wG.BOTTOM, wG.COPPER];
-    if(f.match(/\.msb|\.gbs|\.sts/) || f.match(/bot/) && f.match(/s(?:old(?:er|)|)ma?(?:sk|ks)/))
-        return [wG.BOTTOM, wG.SOLDER];
-    if(f.match(/\.gbp|\.crs/) || f.match(/bot/) && f.match(/pas/))
-        return [wG.BOTTOM, wG.PASTE];
-    if(f.match(/\.slb|\.gbo|\.pls/) || f.match(/bot/) && f.match(/si?lk/))
-        return [wG.BOTTOM, wG.SILK];
-    if(f.match(/\.top|\.gtl|\.cmp/) || f.match(/top/) && f.match(/copper|signal/))
-        return [wG.TOP, wG.COPPER];
-    if(f.match(/\.mst|\.gts|\.stc/) || f.match(/top/) && f.match(/s(?:old(?:er|)|)ma?(?:sk|ks)/))
-        return [wG.TOP, wG.SOLDER];
-    if(f.match(/\.gtp|\.crc/) || f.match(/top/) && f.match(/pas/))
-        return [wG.TOP, wG.PASTE];
-    if(f.match(/\.slt|\.gto|\.plc/) || f.match(/top/) && f.match(/si?lk/))
-        return [wG.TOP, wG.SILK];
-};
-
 // Loads a Excellon drill file.
 wG.loadDrill = function loadDrill(text) {
     text = text.replace(/^[\s%]*M48/, '');
@@ -258,8 +234,8 @@ wG.load = function load(text) {
                     g.scale = 25.4;
                 else if(d == 'MOMM') // Specify MMs.
                     g.scale = 1;
-                else
-                    console.log(d);
+                // else
+                //     console.log(d);
             } else { // Function codes.
                 if(d[0] == 'G' && d[1] == '0' && d[2] == '4' || d[0] == 'M')
                     continue;
@@ -316,8 +292,8 @@ wG.load = function load(text) {
                         shape = d.slice(1)-10;
                 } else if(hasX && (x != prevX) || hasY && (y != prevY))
                     g.cmds.push([(mode<<2) | 1, shape, x, y, oi, oj]);
-                else
-                    console.log(d);
+                // else
+                //     console.log(d);
                 prevX = x, prevY = y;
             }
         }
@@ -445,7 +421,7 @@ wG.renderLayer = function renderLayer(canvas, g, limits) {
                             }
                             ctx.fill();
                         } else {
-                            console.log('Failed to macro', m, g.cmds[i], s);
+                            // console.log('Failed to macro', m, g.cmds[i], s);
                             ctx.fillStyle = 'rgba(255, 0, 0, 1)';
                             ctx.beginPath(), ctx.arc(x, y, .5, 0, Math.PI*2), ctx.fill();
                             ctx.fillStyle = 'rgba(255, 0, 0, .2)';
@@ -691,18 +667,16 @@ wG.renderOutline = function renderOutline(canvas, outline, limits) {
     ctx.fill();
 };
 
-// Little debug function.
-function debug(x) {
-    if(wG.debugLog)
-        wG.debugLog.append($('<div>').text(x));
-}
 
 function init(layers) {
-    var limits = {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity};outlineLayers = layers.filter(function(x) {return x.type == wG.OUTLINE});
+    var limits = {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity};
+    outlineLayers = layers.filter(function(x) {return x.type == wG.OUTLINE});
     if(outlineLayers.length)
         layers = layers.filter(function(x) {return x.type != wG.OUTLINE});
     else
         outlineLayers = layers;
+    console.log(layers, outlineLayers)
+
     for(var i = 0; i < layers.length; i++) {
         wG.touchLimits(layers[i], limits);
         layers[i].enabled = true;
@@ -715,7 +689,6 @@ function init(layers) {
         //wG.ppmm = 20;
         renderer.sortObjects = false;
     } catch(e) {
-        debug('Got WebGL error, falling back to 2D canvas.');
         has3D = false;
         wG.ppmm = 20;
         renderer = new THREE.CanvasRenderer({antialias: true});
@@ -782,6 +755,7 @@ function init(layers) {
 
     scene.add(board);
 
+
     camera.lookAt(board.position);
 
     var boardControls = new THREE.ObjectControls(board, renderer.domElement);
@@ -808,117 +782,35 @@ function init(layers) {
     /*var stats = new Stats;
     $(stats.domElement).css({position: 'absolute', top: 0}).appendTo('body');*/
 
-    // Controls.
-    var controls = $('<div class=controls>').appendTo('body'), controlsText = $('<span>').click(function() {
-        controls.toggleClass('open');
-        controlsText.text(controls.is('.open') ? 'Hide controls' : 'Show controls');
-    }).appendTo(controls), controlsBox = $('<div>').appendTo(controls);
-    controlsText.click();
-
-    // "Load other files" button.
-    controlsBox.append($('<button>').text('Load other files').click(function(){location.reload()}));
-
-    // Layer visibility checkboxes.
-    controlsBox.append('<br><br>Layers:');
-    for(var i = 0; i < layers.length; i++) {
-        var checkbox = $('<input type=checkbox checked>');
-        $('<div>').append(/*wG.layerNames[layers[i].side+''+layers[i].type], '<br>', */checkbox.click(function() {
-            this[1].enabled = this[0].is(':checked');
-            repaint = 0;
-        }.bind([checkbox, layers[i]])), /*layers[i].name*/wG.layerNames[layers[i].side+''+layers[i].type]).appendTo(controlsBox);
-    }
-
     var outline, repaint = 0;
-    // "Show outline" checkbox.
-    controlsBox.append('<br>', $('<input type=checkbox>').click(function() {
-        if(outline) {
-            outline.enabled = outline.sides.visible = this.checked;
-            boardSides.visible = !this.checked;
-            repaint = this.checked ? layers.length+1 : 0;
-            if(!this.checked)
-                updateArea(w, h);
-            else
-                updateArea(outline.maxX-outline.minX, outline.maxY-outline.minY);
-            return;
-        }
-        if(!this.checked)
-            return;
-
-        outline = wG.findOutline(outlineLayers);
-        if(!outline.path.length)
-            return outline = undefined, alert('Can\'t find any outline!');
-        outline.enabled = true;
-        boardSides.visible = false;
-        updateArea(outline.maxX-outline.minX, outline.maxY-outline.minY);
-        var outlineShape = new THREE.Shape();
-        outlineShape.moveTo(outline.path[0][0]-limits.minX-w/2, h/2-(outline.path[0][1]-limits.minY));
-        for(var i = 0; i < outline.path.length; i++) {
-            var cmd = outline.path[i];
-            if(cmd.length > 5) {
-                var ox = cmd[5], oy = cmd[6], cx = cmd[0]+ox, cy = cmd[1]+oy;
-                outlineShape.arc(ox, -oy, Math.sqrt(ox*ox+oy*oy), Math.atan2(oy, -ox), Math.atan2(-(cmd[3]-cy), cmd[2]-cx), !cmd[7]);
-                outlineShape.moveTo(cmd[2]-limits.minX-w/2, -(cmd[3]-limits.minY-h/2));
-            } else
-                outlineShape.lineTo(cmd[2]-limits.minX-w/2, -(cmd[3]-limits.minY-h/2));
-        }
-        outline.sides = outlineShape.extrude({amount: 1.54, bevelEnabled: false, extrudeMaterial: 0, material: 1});
-        outline.sides.materials = [boardMaterial, new THREE.MeshBasicMaterial({visible: false})];
-        //outline.sides.computeVertexNormals();
-        board.add(outline.sides = new THREE.Mesh(outline.sides, new THREE.MeshFaceMaterial()));
-        outline.sides.position.y = 1.54/2;
-        outline.sides.rotation.x = Math.PI/2;
-        repaint = layers.length+1;
-    }), 'Show outline');
-
-    function small(text) {
-        return $('<span>').css('font-size', 'small').append(text);
-    }
-
-    // Area and Cost.
-    var areaBox = $('<span>');
-    controlsBox.append('<br><br>Area: ', areaBox);
-    function updateArea(dw, dh) {
-        var areaMM2 = dw*dh, areaIN2 = areaMM2/25.4/25.4;
-        areaMM2 = Math.round(areaMM2*100)/100;
-        areaIN2 = Math.round(areaIN2*100)/100;
-        areaBox.html('').append(small(areaIN2+' in<sup>2</sup> ('+areaMM2+' mm<sup>2</sup>)'), ' ');//'<br>Cost: ', small('$'+areaIN2*2));
-    }
-    updateArea(w, h);
-
-    // "Save current view as image" button
-    controlsBox.append('<br><br>', $('<button>').text('Save current view as image').click(function(){
-        renderer.render(scene, camera);
-
-        // Get the PNG data: URL.
-        var data = renderer.domElement.toDataURL();
-
-        // Open a new page and add the image with some text.
-        var w = open();
-        w.document.title = 'webGerber';
-        w.document.body.innerHTML = 'To save the image, right click and press "Save image as..."<br>';
-        w.document.body.appendChild($('<img>').attr('src', data)[0]);
-    }));
-
-    // Mouse Controls (explanation of).
-    controlsBox.append('<br><br>Mouse Controls:<br>Rotate ', small('- Left mouse button + drag'), '<br>Zoom ', small('- Scroll / Middle mouse button + drag'), '<br>Pan ', small('- Right mouse button + drag'));
-
-    //Order
-    controlsBox.append('<br><br><br><br>Finished with your design?<br>', small('Order your PCBs from Mayhew Labs:<br>$1.50/in<sup>2</sup> for 3 copies'));//<br>$1.60/in<sup>2</sup> for 3 copies<br>$1.20/in<sup>2</sup> for 5 copies<br>'));
-    controlsBox.append('<br>', $('<button>').text('Learn More').click(function(){
-        // Open a new page and add the image with some text.
-        window.open("http://mayhewlabs.com/order-pcbs","_self");
-    }));
-
-    // Sort by type, but after listing them.
-    layers.sort(function(a, b) {
-        return (a.type || 10) - (b.type || 10);
-    });
+    // outline = wG.findOutline(outlineLayers);
+    // if(outline.path.length)
+    // {
+    // outline.enabled = true;
+    //     var outlineShape = new THREE.Shape();
+    //     outlineShape.moveTo(outline.path[0][0]-limits.minX-w/2, h/2-(outline.path[0][1]-limits.minY));
+    //     for(var i = 0; i < outline.path.length; i++) {
+    //         var cmd = outline.path[i];
+    //         if(cmd.length > 5) {
+    //             var ox = cmd[5], oy = cmd[6], cx = cmd[0]+ox, cy = cmd[1]+oy;
+    //             outlineShape.arc(ox, -oy, Math.sqrt(ox*ox+oy*oy), Math.atan2(oy, -ox), Math.atan2(-(cmd[3]-cy), cmd[2]-cx), !cmd[7]);
+    //             outlineShape.moveTo(cmd[2]-limits.minX-w/2, -(cmd[3]-limits.minY-h/2));
+    //         } else
+    //             outlineShape.lineTo(cmd[2]-limits.minX-w/2, -(cmd[3]-limits.minY-h/2));
+    //     }
+    //     outline.sides = outlineShape.extrude({amount: 1.54, bevelEnabled: false, extrudeMaterial: 0, material: 1});
+    //     outline.sides.materials = [boardMaterial, new THREE.MeshBasicMaterial({visible: false})];
+    //     //outline.sides.computeVertexNormals();
+    //     board.add(outline.sides = new THREE.Mesh(outline.sides, new THREE.MeshFaceMaterial()));
+    //     outline.sides.position.y = 1.54/2;
+    //     outline.sides.rotation.x = Math.PI/2;
+    //     repaint = layers.length+1;
+    // }
 
     // Renders the scene (and repaints all the textures that need repainting.
     function render() {
         requestAnimationFrame(render);
         if(repaint !== null) {
-            //controlsBox.css('color', 'grey').find('input,button').each(function() {this.disabled = true});
             loadingOverlay.show();
             if(repaint === 0)
                 wG.clearBoard(bottom), wG.clearBoard(top), repaint++;//, bottomTexture.needsUpdate = true, topTexture.needsUpdate = true;
@@ -954,124 +846,68 @@ function init(layers) {
 var loadingOverlay;
 
 $(function() {
-    // Debug log, shows up if there's ?debug at the end of the URL.
-    if(location.search.match(/(\?|&)debug/))
-        wG.debugLog = $('<strong>').css({width: '100%', 'text-align': 'center', position: 'absolute', 'z-index': 1000, color: '#111', 'font-family': 'monospace'}).prependTo('body');
-
-    debug('Browser info: '+navigator.userAgent);
-    if(typeof window.FileReader === 'undefined')
-        debug('Your browser doesn\'t have file access');
-
     loadingOverlay = $('<div class=overlay>').html('<div><div>Loading, please wait...</div></div>').appendTo('body');
-
-    var demoLayers = $('script[type="text/x-gerber"]');
-    if(demoLayers.length)
-        return void(setTimeout(function() {
-            init(demoLayers.map(function() {
-                var g = wG.load(this.text);
-                var guess = wG.guessLayer(this.id);
-                g.side = guess[0], g.type = guess[1];
-                g.name = this.id;
-                return g;
-            }).get());
-        }, 0));
-
     loadingOverlay.hide();
-
     // Step 1 box, the comments are for the original demo.
-    var main = $('<div class=main>').appendTo('body').append($('<h1>').html('Step 1:<br>Drop gerber files here'/*+'<br>(or click for a demo board)'*/)/*.click(function() {
-        main.remove();
-        setTimeout(function() {
-            init($('script[type="text/x-gerber"]').map(function() {
-                var g = wG.load(this.text);
-                var guess = wG.guessLayer(this.id);
-                g.side = guess[0], g.type = guess[1];
-                g.name = this.id;
-                return g;
-            }).get());
-        }, 0);
-    })*/);
+    var main = $('<div class=main>').appendTo('body').append($('<h1>').html('Step 1:<br>Drop gerber files here'));
 
-    var layerSelect = $('<select>');
-    for(var i = 0; i < wG.layerTypes.length; i++)
-        layerSelect.append($('<option>').val(wG.layerTypes[i]).text(wG.layerNames[wG.layerTypes[i]]));
+    function getFile(url){
+        // read text from URL location
+        var request = new XMLHttpRequest();
+        request.open('GET', url, false);
+        request.send(null);
+        return request.responseText;
+    }
+    var filePairs = []
+    // Side = 1 : Bottom, 2 : Top, 3 : Drill, Outline
+    // type = 0 : Drill, 1 : Copper, 2 : Solder, 3 : Paste, 4 : Slik, 5 : Outline 
+    filePairs.push([getFile('gerber/Gerber_TopLayer.GTL'), 'Top',2, 1])
+    filePairs.push([getFile('gerber/Gerber_TopSolderMaskLayer.GTS'), 'TopSolder', 2, 2])
+    filePairs.push([getFile('gerber/Gerber_TopPasteMaskLayer.GTP'), 'TopPaste', 2, 3])
+    filePairs.push([getFile('gerber/Gerber_TopSilkscreenLayer.GTO'), 'TopSlik', 2, 4])
+    filePairs.push([getFile('gerber/Gerber_BottomLayer.GBL'), 'Bottom', 1, 1])
+    filePairs.push([getFile('gerber/Gerber_BottomSolderMaskLayer.GBS'), 'BottomSolder', 1, 2])
+    filePairs.push([getFile('gerber/Gerber_BottomPasteMaskLayer.GBP'), 'BottomPaste', 1, 3])
+    filePairs.push([getFile('gerber/Gerber_BottomSilkscreenLayer.GBO'), 'BottomSlik', 1, 4])
+    filePairs.push([getFile('gerber/Gerber_BoardOutlineLayer.GKO'), 'Outline', 3, 5])
+    // filePairs.push([getFile('gerber/Drill_PTH_Through.GTL'), 'Drill', 3, 0])
 
-    // Stops the browser from doing anything with the dropped files (see Firefox).
-    main.bind('dragover', function(ev) {
-        ev.stopPropagation();
-        ev.preventDefault();
-    });
+    // "Done" button.
+        // Count the layers.
+    var layerNum = 0;
+    for(var i = 0; i < filePairs.length; i++) {
+        if(!filePairs[i][0] == null)
+            continue;
+        layerNum++;
+    }
 
-    // Drop event handler, shows the Step 2 box.
-    main.bind('drop', function(ev) {
-        ev.stopPropagation();
-        ev.preventDefault();
-
-        var step2 = $('<div>').append($('<h1>').html('Step 2:<br>Select the layers corresponding to the gerber files'));
-
-        var files = ev.originalEvent.dataTransfer.files, filePairs = [];
-        for(var i = 0; i < files.length; i++) {
-            //if(files[i].type && !files[i].type.match(/^text/))
-            //    continue;
-            var fileSelect = layerSelect.clone(), guess = wG.guessLayer(files[i].name);
-            if(guess)
-                fileSelect.val(guess.join(''));
-            step2.append('<br>', $('<strong>').text(files[i].name+'  '), fileSelect);
-            filePairs.push([files[i], fileSelect]);
+    // Just in case they didn't select any layer.
+    if(!layerNum)
+        return alert('There has to be at one selected layer!');
+    var layers = [];
+    for(var i = 0; i < filePairs.length; i++) {
+        var g;
+        // Try to load the layer from the file.
+        try{
+            g = wG.load(filePairs[i][0]);
+        } catch(e) {
+            loadingOverlay.hide();
+            alert('Error while loading '+this[0]+': '+e);
+            console.log(e.stack);
+            return;
         }
-        if(!filePairs.length)
-           return alert('No valid files found!');
+        g.name = filePairs[i][1]; // File name
+        g.side = filePairs[i][2]; // 1 : Bottom, 2 : Top, 3 : Drill, Outline
+        g.type = filePairs[i][3]; // 0 : Drill, 1 : Copper, 2 : Solder, 3 : Paste, 4 : Slik, 5 : Outline 
 
-        // "Done" button.
-        step2.append('<br>', $('<button>').text('Done').click(function() {
-            // Count the layers.
-            var layerNum = 0;
-            for(var i = 0; i < filePairs.length; i++) {
-                if(!filePairs[i][1].val())
-                    continue;
-                layerNum++;
-            }
-
-            // Just in case they didn't select any layer.
-            if(!layerNum)
-                return alert('There has to be at one selected layer!');
-
-            var layers = [];
-            for(var i = 0; i < filePairs.length; i++) {
-                var f = filePairs[i], which = f[1].val();
-                if(!which)
-                    continue;
-
-                var reader = new FileReader();
-                reader.onload = function(ev) {
-                    var g;
-                    // Try to load the layer from the file.
-                    try {
-                        g = wG.load(ev.target.result);
-                    } catch(e) {
-                        loadingOverlay.hide();
-                        alert('Error while loading '+this[0]+': '+e);
-                        console.log(e.stack);
-                        return;
-                    }
-                    g.type = this[2];
-                    g.side = this[1];
-                    g.name = this[0];
-
-                    // Do we have all the layers?
-                    if(layers.push(g) >= layerNum) {
-                        main.remove();
-                        loadingOverlay.hide();
-                        setTimeout(function() {
-                            init(layers);
-                        }, 0);
-                    }
-                }.bind([f[0].name, +which[0], +which[1]]);
-
-                // Read the contents of the file, with the above callback.
-                reader.readAsText(f[0]);
-            }
-            loadingOverlay.show();
-        })).appendTo(main.html(''));
-    });
+        // Do we have all the layers?
+        if(layers.push(g) >= layerNum) {
+            main.remove();
+            loadingOverlay.hide();
+            setTimeout(function() {
+                init(layers);
+            }, 0);
+        }
+        loadingOverlay.show();
+    }
 });
