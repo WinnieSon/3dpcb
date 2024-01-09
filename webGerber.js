@@ -52,7 +52,6 @@ wG.colors[wG.SOLDER] = 'rgba(94, 152, 6, .5)';//'rgba(37, 80, 5, .7)';
 wG.colors[wG.PASTE]  = '#e6e8fa';
 wG.colors[wG.SILK]   = '#ffffff';
 
-// Guesses a layer's type from its filename.
 wG.guessLayer = function guessLayer(f) {
     f = f.toLowerCase();
     if(f.match(/\.excellon|\.drl|\.drd|\.txt/))
