@@ -667,7 +667,6 @@ wG.renderOutline = function renderOutline(canvas, outline, limits) {
     ctx.fill();
 };
 
-
 function init(layers) {
     var limits = {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity};
     outlineLayers = layers.filter(function(x) {return x.type == wG.OUTLINE});
@@ -759,15 +758,12 @@ function init(layers) {
     boardControls.camera = camera;
     boardControls.eye = camera.position.clone().sub(board.position);
 
-    // Window resize handler.
-    $(window).resize(function() {
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        boardControls.screen.width = window.innerWidth, boardControls.screen.height = window.innerHeight;
-        boardControls.radius = (window.innerWidth + window.innerHeight) / 4;
-    }).resize();
-
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    boardControls.screen.width = window.innerWidth, boardControls.screen.height = window.innerHeight;
+    boardControls.radius = (window.innerWidth + window.innerHeight) / 4;
+    
     // Scrolling wheel handler.
     $(document).mousewheel(function(event, delta, deltaX, deltaY) {
         board.position.y *= 1-deltaY*.06;
@@ -775,10 +771,7 @@ function init(layers) {
 
     document.body.appendChild(renderer.domElement);
 
-    // Stats.
-    /*var stats = new Stats;
-    $(stats.domElement).css({position: 'absolute', top: 0}).appendTo('body');*/
-
+    // Outline Bug
     var outline, repaint = 0;
     // outline = wG.findOutline(outlineLayers);
     // if(outline.path.length)
@@ -827,8 +820,12 @@ function init(layers) {
                 }
 
                 // Are we finished repainting?
-                if(repaint > layers.length)
-                    repaint = null,  loadingOverlay.hide(), /*controlsBox.css('color', '').find('input,button').each(function() {this.disabled = false}),*/ bottomTexture.needsUpdate = true, topTexture.needsUpdate = true;
+                if(repaint > layers.length) {
+                    repaint = null
+                    loadingOverlay.hide()
+                    bottomTexture.needsUpdate = true
+                    topTexture.needsUpdate = true;
+                }
                 else
                     repaint++;
             }
