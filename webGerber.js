@@ -710,18 +710,17 @@ function init(layers) {
     }
 
     // Board.
-    var Material = has3D ? THREE.MeshPhongMaterial : THREE.MeshBasicMaterial;
     var bottom = wG.makeBoard(w, h), top = wG.makeBoard(w, h, true);
     var bottomTexture  = new THREE.Texture(bottom), topTexture  = new THREE.Texture(top);
     wG.clearBoard(bottom), wG.clearBoard(top);
     bottomTexture.needsUpdate = true, topTexture.needsUpdate = true;
 
-    var boardMaterial = new THREE.MeshBasicMaterial({shininess: 80, ambient: 0x333333, specular: 0xcccccc, color: 0x255005});
+    var boardMaterial = new THREE.MeshPhongMaterial({shininess: 80, specular: 0xcccccc, color: 0x255005});
     var materials = [
         boardMaterial,
         boardMaterial,
-        new THREE.MeshBasicMaterial({shininess: 80, ambient: 0xaaaaaa, specular: 0xcccccc, map: topTexture}),
-        new THREE.MeshBasicMaterial({shininess: 80, ambient: 0xaaaaaa, specular: 0xcccccc, map: bottomTexture}),
+        new THREE.MeshPhongMaterial({shininess: 80, specular: 0xcccccc, map: topTexture}),
+        new THREE.MeshPhongMaterial({shininess: 80, specular: 0xcccccc, map: bottomTexture}),
         boardMaterial,
         boardMaterial
     ];
@@ -754,8 +753,6 @@ function init(layers) {
             }
 
     scene.add(board);
-
-
     camera.lookAt(board.position);
 
     var boardControls = new THREE.ObjectControls(board, renderer.domElement);
