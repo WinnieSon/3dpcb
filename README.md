@@ -1,7 +1,9 @@
-3D Gerber Viewer
-================
 
-Original code is from Mayhew Labs: http://mayhewlabs.com/3dpcb
+# 1. npm install
+node.js install in web site
 
-Main aim: Add components on a board.
+# 2. https-server Install
+npm install -g http-server
 
+# 3. Server On, in This Folder
+npx http-server
