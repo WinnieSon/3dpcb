@@ -28,8 +28,8 @@
 			import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-
 			var wG = window.wG || {};
+			var boxOutline;
 
 			wG.BOTTOM = 1, wG.TOP = 2;
 			wG.BOARD = 0, wG.COPPER = 1, wG.SOLDER = 2, wG.PASTE = 3, wG.SILK = 4, wG.OUTLINE = 5;
@@ -105,7 +105,6 @@
 				}
 			
 				var cmds = text.split('\n');
-			
 				var g = {offA: 0, offB: 0, shapes: [], cmds: [], scale: 1}, shape, body = false, prevX = 0, prevY = 0;
 			
 				for(var i = 0; i < cmds.length; i++) {
@@ -728,7 +727,7 @@
 				filePairs.push([getFile(path+'Gerber_BottomSilkscreenLayer.GBO'), 'BottomSlik', 1, 4])
 				filePairs.push([getFile(path+'Gerber_BoardOutlineLayer.GKO'), 'Outline', 3, 5])
 				// filePairs.push([getFile('gerber/Drill_PTH_Through.GTL'), 'Drill', 3, 0])
-			
+
 				var layers = [];
 				for(var i = 0; i < filePairs.length; i++) {
 					var g;
@@ -748,6 +747,7 @@
 				}
 
 				var limits = {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity};
+				var limitsOutline = {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity};
 				var outlineLayers = layers.filter(function(x) {return x.type == wG.OUTLINE});
 				layers = layers.filter(function(x) {return x.type != wG.OUTLINE});
 				console.log(layers, outlineLayers)
@@ -757,7 +757,25 @@
 					layers[i].enabled = true;
 				}
 				var w = limits.maxX-limits.minX, h = limits.maxY-limits.minY;
-
+				wG.touchLimits(outlineLayers[0], limitsOutline);
+				console.log(limits)
+				console.log(limitsOutline)
+				var wO = limitsOutline.maxX-limitsOutline.minX, hO = limitsOutline.maxY-limitsOutline.minY;
+				//OminX = limitsOutline.minX-limits.minX, OminY = limitsOutline.minY-limits.minY
+				//OminX = (wO - w) / 2 + (limitsOutline.minX - limits.minX + limitsOutline.maxX - limits.maxX)
+				//OminY = (hO - h) / 2 + (limitsOutline.minY - limits.minY + limitsOutline.maxY - limits.maxY)
+				//OminX = limitsOutline.minX - limits.minX
+				//OminY = limitsOutline.minY - limits.minY
+				boxOutline = limits
+				//OminX = limitsOutline.minX 
+				//OminY = limitsOutline.minY
+				//OminX /= 2
+				//OminY /= 2
+				//OminX *= -1
+				//OminY *= -1
+				console.log(limitsOutline.minX-limits.minX, limitsOutline.minY-limits.minY)
+				console.log(limitsOutline.maxX-limits.maxX, limitsOutline.maxY-limits.maxY)
+				console.log(wO - w, hO - h)
 				// Board.
 				var bottom = wG.makeBoard(w, h), top = wG.makeBoard(w, h, true);
 				var bottomTexture  = new THREE.Texture(bottom), topTexture  = new THREE.Texture(top);
@@ -807,46 +825,13 @@
 			}
 
             //오브젝트를 원점으로 이동
-            const resetCenter = (object, controls, camera, scene) => {
+            const resetCenter = (object) => {
                 //Object를 감싸는 Box 생성
-                const box = new THREE.Box3().setFromObject(object);
-                //생성된 Box 속성을 통해 Object Size 구하기
-                const size = {x: box.max.x - box.min.x, y: box.max.y - box.min.y, z: box.max.z - box.min.z};
-                
-				console.log(box)
-                //Repositioning
-                object.position.x = -box.min.x - size.x / 2;
-                object.position.y = -box.min.y - size.y / 2;
-                //object.position.z = -box.min.z - size.z / 2;
-				console.log(size)
-
-                //object.position.x = -41.08
-                //object.position.y = 32.77
-                object.position.z = -0.04
 				console.log(object)
-                
-                
-                //카메라를 Object의 황금비 위치로 이동할 변수(카메라 황금비 = 1.618)
-                const sceneRadiusForCamera = Math.max(
-                    size.y,
-                    size.z,
-                    size.x
-                ) / 2 * 1.618;
-                
-                //object 위치 변경을 control에도 반영
-                controls.reset();
-                
-                //카메라 위치 설정(현재는 Z축에서 타겟을 바라봄)
-                //camera.position.z = sceneRadiusForCamera;
-                camera.position.y = 0;
-                camera.position.x = 0;
-                
-                //카메라가 바라보는 지점 변경
-                camera.lookAt(scene.position);
             }
 
 			function init() {
-				camera = new THREE.PerspectiveCamera( 10, window.innerWidth / window.innerHeight, 0.1, 20 );
+				camera = new THREE.PerspectiveCamera( 10, window.innerWidth / window.innerHeight, 0.1, 150 );
 				camera.position.z = 2.5;
 
 				// scene
@@ -874,50 +859,65 @@
 				const controls = new OrbitControls( camera, renderer.domElement );
                 controls.damping = 0.2;
 				controls.minDistance = 10;
+				controls.maxDistance = 100;
 				//controls.maxDistance = 5;
 
-				var path = './assets/ESP32_V3/'
-				//var path = './assets/Outlet/'
+				//var path = './assets/ESP32_V3/'
+				var path = './assets/Outlet/'
 				//var path = './assets/OSHW/'
 
+
+				var board = GBRLoader(path);
+                
+                //Repositioning
+				//board.position.x = -box_borad.min.x - size_board.x / 2;
+                //board.position.y = -box_borad.min.y - size_board.y / 2;
+
+				//board.position.z = -0.1
+				scene.add(board)
+				var json = JSON.parse(getFile(path+'PCB.json'))
+				var axisZero = {x:json.head.x, y:json.head.y}
+				console.log(axisZero)
+				
                 new MTLLoader()
-                .load( path+'model.mtl', function ( materials ) {
+                .load(path+'model.mtl', function ( materials ) {
                     materials.preload();
 
                     new OBJLoader()
                         .setMaterials( materials )
-                        .load( path+'model.obj', function ( object ) {
+                        .load(path+'model.obj', function ( object ) {
                             object.scale.setScalar( 0.01 );
-                            scene.add( object );
-                            resetCenter(object, controls, camera, scene);
+                            scene.add(object);
+							console.log(object)
+
+							//Repositioning
+							object.position.x = -axisZero.x * 0.01 - (boxOutline.minX + (boxOutline.maxX-boxOutline.minX) / 2) * 0.0393701
+							object.position.y = axisZero.y * 0.01 - (boxOutline.minY + (boxOutline.maxY-boxOutline.minY) / 2) * 0.0393701
+							object.position.z = -0.04
+	
+							board.scale.setScalar(0.0393701)
+							board.rotateX(Math.PI * 0.5)
+
+							//object 위치 변경을 control에도 반영
+							controls.reset();
+							camera.position.x = 0
+							camera.position.y = 0
+							console.log(object.position)
+							console.log(board.position)
+							
+							//카메라가 바라보는 지점 변경
+							camera.lookAt(board);
+							camera.zoom = 100
                         }, onProgress );
-
                 } );
-				
-				var board = GBRLoader(path);
-                const box = new THREE.Box3().setFromObject(board);
-				console.log(box)
-				board.scale.setScalar(0.0395)
-				board.rotateX(Math.PI * 0.5)
-				//board.position.z = -0.1
-				scene.add(board)
-				
-				
 				window.addEventListener( 'resize', onWindowResize );
-				console.log(board)
-				console.log(scene)
-
-                camera.position.y = 0;
-                camera.position.x = 0;
-				camera.zoom = 100
-                
 			}
 
 
 			function onWindowResize() {
 				camera.aspect = window.innerWidth / window.innerHeight;
 				camera.updateProjectionMatrix();
-				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.setSize(window.innerWidth, window.innerHeight);
 			}
 
 			function animate() {
